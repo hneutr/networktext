@@ -85,7 +85,7 @@ class SectionNetwork():
                 # don't make edges between the same node
                 if first.key == second.key:
                     continue
-
+                
                 edges_dict[first.key][second.key] += 1
                 block_until[first.key][second.key] = match_end + self.edge_repeat_threshold
 

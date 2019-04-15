@@ -45,7 +45,9 @@ class TextDatastore():
             self.metadata = {
                 'text_name' : self.text_name,
                 'datastore_path' : self.datastore_path,
-                'file_match_hashes' : {},
+                'blacklist_hash': None,
+                'entities_hash': None,
+                'aliases_hash': None,
                 'files' : {
                     'ordering' : [],
                     'exclusions' : [],
@@ -92,9 +94,7 @@ class TextDatastore():
         fields:
         - text_name: string, name of text
         - datastore_path: path to datastore (where this file is, lol)
-        - file_match_hashes: dict. filename to hash of contents.
         """
-        print('TODO: use hashes')
         with open(self.metadata_path, 'w') as f:
             json.dump(self.metadata, f)
 
@@ -114,7 +114,7 @@ class TextDatastore():
                     start=m['start'],
                     end=m['end'],
                     text=m['text'],
-                    key=m['key']
+                    key=m.get('key'),
                 ) for m in file_raw_matches]
 
     def get_loc(self, path):

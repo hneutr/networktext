@@ -128,5 +128,4 @@ class Match(dict):
 
         return string[::-1]
 
-
 STOPWORDS = make_stopwords()

@@ -42,3 +42,5 @@ class Ennotator():
                 self.entity_interface,
             ),
         }
+
+        self.entity_interface.update_storage()
