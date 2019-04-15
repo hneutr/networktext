@@ -127,7 +127,8 @@ class FileInteracter(Interacter):
         self.update_storage()
 
 class EntityInteracter(Interacter):
-    def __init__(self, entity_interface):
+    def __init__(self, storage, entity_interface):
+        self.storage = storage
         self.entity_interface = entity_interface
 
         # ENTITIES will be one entity per line
@@ -136,9 +137,9 @@ class EntityInteracter(Interacter):
         #   - "entity", "alias", INCLUDE_IN_FILES:[],EXCLUDE_FROM_FILES:[]
 
     def label_entities(self):
-        unlabeled_entities = sorted(self.entity_interface.unlabeled_entities)
+        all_matches = [m for matches in self.storage.raw_matches.values() for m in matches]
+        unlabeled_entities = sorted(self.entity_interface.unlabeled_entities(all_matches))
 
-        print(self.entity_interface.entities)
         count_of_unlabeled_entities = len(unlabeled_entities)
         for i, unlabeled_entity in enumerate(unlabeled_entities):
             handler = self.list_interaction(

@@ -8,7 +8,8 @@ import sys
 from . import entities
 
 class TextNetwork():
-    def __init__(self, file_names, entity_interface, accumulative=True, edge_threshold=50, edge_repeat_threshold=50, min_occurrences=3):
+    def __init__(self, storage, file_names, entity_interface, accumulative=True, edge_threshold=50, edge_repeat_threshold=50, min_occurrences=3):
+        self.storage = storage
         self.accumulative = accumulative
         self.edge_threshold = edge_threshold
         self.edge_repeat_threshold = edge_repeat_threshold
@@ -24,7 +25,8 @@ class TextNetwork():
                 kwargs['existing_edges'] = self.section_networks[-1].edges
                 kwargs['existing_nodes'] = self.section_networks[-1].nodes
 
-            section_matches = entity_interface.section_matches_with_entity_keys(file_name)
+            raw_matches = self.storage.raw_matches[file_name]
+            section_matches = entity_interface.add_entity_keys_to_matches(raw_matches)
 
             self.section_networks.append(
                 SectionNetwork(section_matches, **kwargs)

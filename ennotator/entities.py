@@ -5,22 +5,17 @@ holds methods for entities
 - getting them for a given file
     - or all files
 """
-import copy
-import json
 import os
-
-from . import matcher
+import hashlib
+from collections import defaultdict
 
 class TextEntities():
     """centralized place for handling of entities, aliases, blacklist, etcetera."""
-    def __init__(self, storage, reader):
+    def __init__(self, storage):
         self.storage = storage
-        self.reader = reader
         self.blacklist = self.load_blacklist()
         self.entities = self.load_entities()
         self.aliases = self.load_aliases(self.entities)
-        self.matches_by_section = self.load_matches_by_section()
-        self.all_matches = [m for matches in self.matches_by_section.values() for m in matches]
 
     def load_blacklist(self):
         """loads the blacklist"""
@@ -42,14 +37,6 @@ class TextEntities():
             aliases = [Alias.load_from_storage(l.strip(), entities) for l in f.readlines()]
 
         return aliases
-
-    def load_matches_by_section(self):
-        """this function calls one that is poorly named (raw_entities; they're matches)"""
-        matches_by_section = dict()
-        for file_name in self.reader.ordered_content_files:
-            matches_by_section[file_name] = self.storage.raw_entities[file_name]
-
-        return matches_by_section
 
     @classmethod
     def find_entity_with_key(cls, entities, key):
@@ -73,29 +60,73 @@ class TextEntities():
 
     def update_storage(self):
         """updates the state of the storage"""
+        blacklist_content = self.blacklist_file_contents
         with open(self.storage.get_loc('blacklist'), 'w') as f:
-            for b in self.blacklist:
-                f.write(b + os.linesep)
+            f.write(blacklist_content)
 
-        entities_content = [e.get_storage_representation() for e in self.entities]
+        entities_content = self.entities_file_contents
         with open(self.storage.get_loc('entities'), 'w') as f:
-            for l in entities_content:
-                f.write(l + os.linesep)
+            f.write(entities_content)
 
-        aliases_content = [a.get_storage_representation() for a in self.aliases]
+        aliases_content = self.aliases_file_contents
         with open(self.storage.get_loc('aliases'), 'w') as f:
-            for l in aliases_content:
-                f.write(l + os.linesep)
+            f.write(aliases_content)
+
+        self.storage.metadata['blacklist_hash'] = self.get_content_hash(blacklist_content)
+        self.storage.metadata['entities_hash'] = self.get_content_hash(entities_content)
+        self.storage.metadata['aliases_hash'] = self.get_content_hash(aliases_content)
+        self.storage.save_metadata()
 
     @property
-    def unlabeled_entities(self):
+    def matches_are_not_up_to_date(self):
+        old_new_hash_pairs = [
+            (
+                self.get_content_hash(self.blacklist_file_contents), 
+                self.storage.metadata.get('blacklist_hash'),
+            ),
+            (
+                self.get_content_hash(self.entities_file_contents),
+                self.storage.metadata.get('entities_hash', None),
+            ),
+            (
+                self.get_content_hash(self.aliases_file_contents),
+                self.storage.metadata.get('aliases_hash', None),
+            ),
+        ]
+
+        for old, new in old_new_hash_pairs:
+            if old != new:
+                return True
+
+        return False
+
+    def get_content_hash(self, content=''):
+        return hashlib.sha224(content.encode('utf-8')).hexdigest()
+
+    @property
+    def blacklist_file_contents(self):
+        return os.linesep.join(sorted([b for b in self.blacklist]))
+
+    @property
+    def entities_file_contents(self):
+        return os.linesep.join(
+            sorted([e.get_storage_representation() for e in self.entities])
+        )
+
+    @property
+    def aliases_file_contents(self):
+        return os.linesep.join(
+            sorted([a.get_storage_representation() for a in self.aliases])
+        )
+
+    def unlabeled_entities(self, matches):
         """returns the unlabeled entities
         start from clean matches
         - remove entities
         - remove blacklist
         - remove aliases
         """
-        clean_matches = [m.clean_text for m in self.all_matches]
+        clean_matches = [m.clean_text for m in matches]
         unlabeled_entities = {m for m in clean_matches if m}.difference(
             {e.key for e in self.entities}
         ).difference(
@@ -106,13 +137,13 @@ class TextEntities():
 
         return list(unlabeled_entities)
 
-    def section_matches_with_entity_keys(self, section_name, include_unlabeled=False):
+    def add_entity_keys_to_matches(self, raw_matches, include_unlabeled=False):
         """returns entities in a given section
         takes all of the matches and finds their entity (disambiguating aliases)
         if include_unlabeled is True, don't require an entity/alias
         """
         matches = []
-        for match in self.matches_by_section[section_name]:
+        for match in raw_matches:
             clean_text = match.clean_text
 
             if clean_text in self.blacklist:
@@ -136,6 +167,18 @@ class TextEntities():
                 matches.append(match)
 
         return matches
+
+    def get_entities_with_aliases(self):
+        """gets the entities in a nice format for spacy's matcher"""
+        entities_with_aliases = defaultdict(list)
+
+        for entity in self.entities:
+            entities_with_aliases[entity.key].append(entity.key)
+
+        for alias in self.aliases:
+            entities_with_aliases[alias.entity.key].append(alias.string)
+
+        return entities_with_aliases
 
 
 class Scope():

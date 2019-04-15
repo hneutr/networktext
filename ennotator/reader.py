@@ -1,6 +1,7 @@
 import os
-from pathlib import Path
 import copy
+from pathlib import Path
+
 from . import matcher
 
 # - ordering: list of strings, which if supplied, will be used to
@@ -15,7 +16,7 @@ from . import matcher
 #       menu will say something like: `displays files with indexes`
 #       - type number of file to exclude or z to be done
 
-class TextObject():
+class TextReader():
     def __init__(self, storage, path=None):
         """
         parameters:
@@ -46,15 +47,16 @@ class TextObject():
 
         return ordered_content
 
-    def load_entities(self, reload=False):
+    def load_matches(self, reload=False, entities_with_aliases=None):
+        entity_matcher = matcher.EntityMatchObject(entities_with_aliases)
         for file_name in self.ordered_content_files:
-            raw_entities = self.storage.raw_entities.get(file_name, None)
-            if raw_entities is None or reload:
+            raw_matches = self.storage.raw_matches.get(file_name, None)
+            if raw_matches is None or reload:
                 file_text = self.get_file_content(file_name)
-                raw_entities = matcher.EnnotatorMatcher(file_text).get_raw_entities()
+                raw_matches = entity_matcher.get_matches(file_text)
 
-                self.storage.raw_entities[file_name] = raw_entities
-                self.storage.save_raw_entities()
+                self.storage.raw_matches[file_name] = raw_matches
+                self.storage.save_raw_matches()
 
     def load_from_storage(self, stored_textobject):
         self.files = stored_textobject['files']
@@ -130,5 +132,4 @@ class TextObject():
 
     def parse_text_from_html(self, content):
         from bs4 import BeautifulSoup
-        return "\n".join(BeautifulSoup(content).findAll(text=True))
-
+        return "".join(BeautifulSoup(content).findAll(text=True))

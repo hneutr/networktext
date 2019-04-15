@@ -54,15 +54,15 @@ class TextDatastore():
 
             self.save_metadata()
 
-        if not os.path.isfile(self.raw_entities_path):
-            self.raw_entities = {}
-            self.save_raw_entities()
+        if not os.path.isfile(self.raw_matches_path):
+            self.raw_matches = {}
+            self.save_raw_matches()
 
         for file in TextDatastore.files:
             Path(self.get_loc(file)).touch()
 
         self.load_metadata()
-        self.load_raw_entities()
+        self.load_raw_matches()
 
 
     def get_file_content(self, file):
@@ -76,16 +76,16 @@ class TextDatastore():
             f.write(content)
 
     @property
-    def raw_entities_path(self):
+    def raw_matches_path(self):
         return self.get_loc('raw_entities')
 
     @property
     def metadata_path(self):
         return self.get_loc('metadata')
 
-    def save_raw_entities(self):
-        with open(self.raw_entities_path, 'w') as f:
-            json.dump(self.raw_entities, f)
+    def save_raw_matches(self):
+        with open(self.raw_matches_path, 'w') as f:
+            json.dump(self.raw_matches, f)
 
     def save_metadata(self):
         """
@@ -102,14 +102,20 @@ class TextDatastore():
         with open(self.metadata_path, 'r') as f:
             self.metadata = json.load(f)
 
-    def load_raw_entities(self):
+    def load_raw_matches(self):
         from . matcher import Match
-        with open(self.raw_entities_path, 'r') as f:
-            raw_entities = json.load(f)
+        with open(self.raw_matches_path, 'r') as f:
+            raw_matches = json.load(f)
 
-        self.raw_entities = {}
-        for file_name, file_raw_entities in raw_entities.items():
-            self.raw_entities[file_name] = [Match(start=m['start'], end=m['end'], text=m['text']) for m in file_raw_entities]
+        self.raw_matches = {}
+        for file_name, file_raw_matches in raw_matches.items():
+            self.raw_matches[file_name] = [
+                Match(
+                    start=m['start'],
+                    end=m['end'],
+                    text=m['text'],
+                    key=m['key']
+                ) for m in file_raw_matches]
 
     def get_loc(self, path):
         return os.path.join(self.datastore_path, path)
